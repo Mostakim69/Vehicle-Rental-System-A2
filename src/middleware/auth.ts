@@ -4,39 +4,43 @@ import config from "../config";
 
 const auth = (...roles: string[]) => {
   return async (req: Request, res: Response, next: NextFunction) => {
-    const token = req.headers.authorization;
-
     try {
-      if (!token) {
-        return res.status(500).json({
-          message: "You are not allowed!!",
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        return res.status(401).json({
+          success: false,
+          message: "Authorization token missing",
         });
       }
+      const token = authHeader.split(" ")[1];
 
-      const decoded = jwt.verify(token, config.jwt_secret!) as JwtPayload;
+      const decoded = jwt.verify(
+        token as string,
+        config.jwt_secret!
+      ) as JwtPayload & {
+        id: number;
+        role: string;
+      };
       console.log(decoded);
 
       req.user = decoded;
-
-      if (decoded.role === "customer") {
-        if (String(decoded.id) === req.params.id) {
-          return next();
-        } else {
-          return res.status(500).json({
-            error: "Unauthorized!!!",
+      if (roles.length && !roles.includes(decoded.role)) {
+        return res.status(403).json({
+          error: "You do not have permission to perform this action",
+        });
+      }
+      if (decoded.role === "customer" && req.params.id) {
+        if (String(decoded.id) !== req.params.id) {
+          return res.status(403).json({
+            error: "Unauthorized to access this resource",
           });
         }
       }
-      if (roles.length && !roles.includes(decoded.role)) {
-        return res.status(500).json({
-          error: "Unauthorized!!!",
-        });
-      }
       next();
     } catch (error: any) {
-      res.status(500).json({
+      res.status(401).json({
         success: false,
-        message: error.message,
+        message: "Invalid or expired token",
       });
     }
   };
