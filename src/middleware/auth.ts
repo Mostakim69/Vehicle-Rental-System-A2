@@ -16,7 +16,7 @@ const auth = (...roles: string[]) => {
 
       const decoded = jwt.verify(
         token as string,
-        config.jwt_secret!
+        config.jwtSecret as string
       ) as JwtPayload & {
         id: number;
         role: string;
